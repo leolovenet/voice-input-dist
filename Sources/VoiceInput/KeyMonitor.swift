@@ -7,6 +7,7 @@ final class KeyMonitor {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var fnPressed = false
+    private var rightCtrlPressed = false
 
     /// Start monitoring. Returns false if accessibility permission is missing.
     func start() -> Bool {
@@ -58,9 +59,12 @@ final class KeyMonitor {
             return Unmanaged.passRetained(event)
         }
 
+        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let flags = event.flags
         let fnDown = flags.contains(.maskSecondaryFn)
+        let rightCtrlKeyCode: Int64 = 62
 
+        // Handle Fn key
         if fnDown && !fnPressed {
             fnPressed = true
             DispatchQueue.main.async { [weak self] in self?.onFnDown?() }
@@ -69,6 +73,20 @@ final class KeyMonitor {
             fnPressed = false
             DispatchQueue.main.async { [weak self] in self?.onFnUp?() }
             return nil // suppress Fn release
+        }
+
+        // Handle Right Ctrl key (keyCode 62)
+        if keyCode == rightCtrlKeyCode {
+            let ctrlDown = flags.contains(.maskControl)
+            if ctrlDown && !rightCtrlPressed {
+                rightCtrlPressed = true
+                DispatchQueue.main.async { [weak self] in self?.onFnDown?() }
+                return nil
+            } else if !ctrlDown && rightCtrlPressed {
+                rightCtrlPressed = false
+                DispatchQueue.main.async { [weak self] in self?.onFnUp?() }
+                return nil
+            }
         }
 
         return Unmanaged.passRetained(event)
